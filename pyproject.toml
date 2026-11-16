@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bt-call-agent"
+version = "0.1.0"
+description = "Let an AI agent talk in your phone calls: Linux pretends to be a Bluetooth headset, call audio goes to Gemini Live."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+dependencies = ["google-genai>=2.30,<3"]
+classifiers = [
+    "Operating System :: POSIX :: Linux",
+    "Topic :: Communications :: Telephony",
+    "Topic :: Multimedia :: Sound/Audio",
+]
+
+[project.scripts]
+bt-call-agent = "bt_call_agent.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+bt_call_agent = ["data/*"]
