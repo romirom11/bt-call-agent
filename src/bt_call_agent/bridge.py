@@ -121,7 +121,7 @@ class Player:
                 while len(data) < PREBUF_BYTES and (left := deadline - loop.time()) > 0:
                     try:
                         data += await asyncio.wait_for(self.queue.get(), left)
-                    except TimeoutError:
+                    except asyncio.TimeoutError:   # == TimeoutError on 3.11+, not on 3.10
                         break
             for _ in range(2):
                 if self.proc.returncode is not None:

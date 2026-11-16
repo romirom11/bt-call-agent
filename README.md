@@ -9,16 +9,27 @@ bridges that audio to **Gemini Live**. The person on the other end talks to the
 AI; you watch the transcript.
 
 ```
- ┌──────────┐  Bluetooth HFP   ┌───────────────────── Linux ──────────────────────┐
- │  Phone   │  (mSBC 16 kHz)   │ PipeWire                                         │
- │ GSM/VoIP │ ───────────────► │ bluez_input.*  ─► pw-record ─► ┐                 │
- │   call   │                  │                                │  Gemini Live   │
- │          │ ◄─────────────── │ bluez_output.* ◄─ pw-play  ◄─ ┘  (cloud)        │
- └──────────┘                  └──────────────────────────────────────────────────┘
+┌────────────────────────────────┐
+│ Phone: GSM / Telegram call     │
+└────────────────────────────────┘
+      ▲                   │
+ agent's voice       their voice      Bluetooth HFP, mSBC 16 kHz
+      │                   ▼           (the phone thinks it's a headset)
+┌────────────────────────────────┐
+│ Linux: BlueZ + PipeWire        │
+│ bluez_output.*   bluez_input.* │
+└────────────────────────────────┘
+      ▲                   │
+   pw-play            pw-record       bt-call-agent
+   24 kHz              16 kHz
+      │                   ▼
+┌────────────────────────────────┐
+│ Gemini Live (cloud)            │
+└────────────────────────────────┘
 ```
 
-Works with any call the phone routes to a Bluetooth headset: regular GSM calls,
-Telegram, WhatsApp, Signal…
+Should work with any call the phone routes to a Bluetooth headset: regular GSM
+calls, Telegram, WhatsApp, Signal… (so far tested with Telegram).
 
 ## Status
 
@@ -40,8 +51,9 @@ Not yet:
 - Linux with **BlueZ ≥ 5.6x**, **PipeWire ≥ 1.0** with **WirePlumber 0.5** and its
   BlueZ plugin (Arch: `bluez bluez-utils pipewire wireplumber pipewire-audio`;
   Debian/Ubuntu: `bluez pipewire wireplumber libspa-0.2-bluetooth`)
-- a Bluetooth adapter that does SCO audio well (Intel AX2xx and recent Realtek
-  are fine; Raspberry Pi's built-in one is tricky — use a USB dongle)
+- a Bluetooth adapter whose SCO (call) audio goes over HCI. Tested with a Realtek
+  USB adapter. Raspberry Pi's built-in one routes SCO to PCM pins by default, so
+  use a USB dongle there.
 - Python ≥ 3.10
 - a [Gemini API key](https://aistudio.google.com/apikey)
 - a phone, within Bluetooth range
@@ -49,7 +61,7 @@ Not yet:
 ## Install
 
 ```bash
-pipx install git+https://github.com/<you>/bt-call-agent
+pipx install git+https://github.com/romirom11/bt-call-agent
 # or from a checkout:
 pipx install .
 ```
