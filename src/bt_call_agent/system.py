@@ -14,6 +14,23 @@ AG_UUID = "0000111f"   # Handsfree Audio Gateway — what a normal PC advertises
 HEADSET_CLASS = 0x0404  # major Audio/Video, minor Wearable Headset
 
 
+INSTALL_HINT = ("Arch: pacman -S bluez bluez-utils pipewire wireplumber pipewire-audio | "
+                "Debian/Ubuntu: apt install bluez pipewire wireplumber libspa-0.2-bluetooth | "
+                "Fedora: dnf install bluez pipewire wireplumber pipewire-utils")
+
+
+def spa_bluez_plugin() -> str | None:
+    """Path of PipeWire's BlueZ SPA plugin, if installed (Debian/Ubuntu ship it separately)."""
+    import glob
+    dirs = [os.environ.get("SPA_PLUGIN_DIR", "")] + glob.glob("/usr/lib*/spa-0.2") \
+        + glob.glob("/usr/lib/*/spa-0.2")
+    for d in dirs:
+        p = os.path.join(d, "bluez5", "libspa-bluez5.so")
+        if d and os.path.isfile(p):
+            return p
+    return None
+
+
 def sh(*cmd, timeout=10) -> str:
     try:
         return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout).stdout
@@ -89,8 +106,12 @@ def doctor() -> int:
     tools = ["bluetoothctl", "pw-dump", "pw-record", "pw-play", "wpctl"]
     missing = [t for t in tools if not shutil.which(t)]
     check(not missing, "bluez + pipewire tools found",
-          f"missing tools: {', '.join(missing)}",
-          "install bluez, bluez-utils, pipewire, wireplumber (pipewire-audio / pipewire-bin)")
+          f"missing tools: {', '.join(missing)}", INSTALL_HINT)
+
+    plugin = spa_bluez_plugin()
+    check(bool(plugin), f"PipeWire Bluetooth plugin found ({plugin})",
+          "PipeWire Bluetooth (bluez5 SPA) plugin not found: no HFP role, no call audio nodes",
+          INSTALL_HINT)
 
     check(sh("systemctl", "is-active", "bluetooth").strip() == "active",
           "bluetooth.service is running", "bluetooth.service is not running",

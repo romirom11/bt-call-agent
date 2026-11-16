@@ -52,6 +52,7 @@ restart_stack() {
 enable() {
   command -v bluetoothctl >/dev/null || { warn "bluez is not installed"; exit 1; }
   command -v wpctl >/dev/null || { warn "pipewire/wireplumber is not installed"; exit 1; }
+  have_spa_bluez || { warn "PipeWire's Bluetooth plugin is missing (Debian/Ubuntu: libspa-0.2-bluetooth)"; exit 1; }
 
   for f in "$WP_DIR"/*.conf; do
     [ -e "$f" ] && [ "$f" != "$WP_CONF" ] && grep -q 'bluez5.roles' "$f" \
@@ -107,7 +108,16 @@ disable() {
   status
 }
 
+have_spa_bluez() {
+  compgen -G "/usr/lib*/spa-0.2/bluez5/libspa-bluez5.so" >/dev/null \
+    || compgen -G "/usr/lib/*/spa-0.2/bluez5/libspa-bluez5.so" >/dev/null
+}
+
 status() {
+  if ! command -v bluetoothctl >/dev/null; then
+    warn "BlueZ is not installed (no bluetoothctl). Run: bt-call-agent doctor"
+    return 1
+  fi
   local show; show=$(bluetoothctl show 2>/dev/null || true)
   echo "WirePlumber roles file : $([ -f "$WP_CONF" ] && echo present || echo absent)"
   echo "bluetoothd drop-in     : $([ -f "$DROPIN" ] && echo present || echo absent)"

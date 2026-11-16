@@ -62,9 +62,12 @@ Not yet:
 
 ```bash
 pipx install git+https://github.com/romirom11/bt-call-agent
-# or from a checkout:
-pipx install .
+# or with uv:
+uv tool install git+https://github.com/romirom11/bt-call-agent
 ```
+
+On Debian/Ubuntu, pipx and `python3 -m venv` need the `python3-venv` package
+(`sudo apt install pipx python3-venv`).
 
 ## Setup
 
