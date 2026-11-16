@@ -15,11 +15,24 @@ set -euo pipefail
 
 WP_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/wireplumber/wireplumber.conf.d"
 WP_CONF="$WP_DIR/60-bt-call-agent-hfp.conf"
+WP_HEADLESS="$WP_DIR/60-bt-call-agent-headless.conf"
 DROPIN_DIR=/etc/systemd/system/bluetooth.service.d
 DROPIN="$DROPIN_DIR/60-bt-call-agent.conf"
 MAIN=/etc/bluetooth/main.conf
 BACKUP=/etc/bluetooth/main.conf.bt-call-agent.bak
 CLASS=0x240404
+
+# Does this user lack a logind session on a seat (no local desktop)? WirePlumber
+# runs its BlueZ monitor only for an active seat, so headless boxes need seat
+# monitoring off. Override with BT_CALL_AGENT_HEADLESS=1 / 0.
+is_headless() {
+  case "${BT_CALL_AGENT_HEADLESS:-}" in 1) return 0 ;; 0) return 1 ;; esac
+  local s
+  for s in $(loginctl list-sessions --no-legend 2>/dev/null | awk -v u="$USER" '$3==u {print $1}'); do
+    [ -n "$(loginctl show-session "$s" -p Seat --value 2>/dev/null)" ] && return 1
+  done
+  return 0
+}
 
 say() { printf '\033[1m==>\033[0m %s\n' "$*"; }
 warn() { printf '\033[33m!!\033[0m %s\n' "$*" >&2; }
@@ -69,6 +82,21 @@ monitor.bluez.properties = {
 }
 EOF
 
+  if is_headless; then
+    say "no local seat for $USER (headless): disabling WirePlumber's BlueZ seat monitoring -> $WP_HEADLESS"
+    cat > "$WP_HEADLESS" <<'EOF'
+## bt-call-agent: headless machine. WirePlumber runs its BlueZ monitor only for an
+## active logind seat; without one, no Bluetooth audio profiles get registered.
+wireplumber.profiles = {
+  main = {
+    monitor.bluez.seat-monitoring = disabled
+  }
+}
+EOF
+  else
+    rm -f "$WP_HEADLESS"
+  fi
+
   say "BlueZ: device class $CLASS (headset) in $MAIN"
   sudo test -f "$MAIN" || printf '[General]\n' | sudo tee "$MAIN" >/dev/null
   sudo test -f "$BACKUP" || sudo cp -a "$MAIN" "$BACKUP"
@@ -97,7 +125,7 @@ EOF
 
 disable() {
   say "removing headset mode"
-  rm -f "$WP_CONF"
+  rm -f "$WP_CONF" "$WP_HEADLESS"
   sudo rm -f "$DROPIN"
   if sudo test -f "$BACKUP"; then
     sudo mv "$BACKUP" "$MAIN"
@@ -120,6 +148,7 @@ status() {
   fi
   local show; show=$(bluetoothctl show 2>/dev/null || true)
   echo "WirePlumber roles file : $([ -f "$WP_CONF" ] && echo present || echo absent)"
+  echo "headless seat override : $([ -f "$WP_HEADLESS" ] && echo present || echo absent)"
   echo "bluetoothd drop-in     : $([ -f "$DROPIN" ] && echo present || echo absent)"
   echo "bluetoothd command     : $(bluetoothd_argv)"
   echo "main.conf Class/Name   : $(grep -E '^[[:space:]]*(Class|Name)[[:space:]]*=' "$MAIN" 2>/dev/null | tr '\n' ' ' || true)"
@@ -130,7 +159,7 @@ status() {
   elif grep -q 0000111f <<<"$show"; then
     echo "role                   : Audio Gateway (normal PC)"
   else
-    echo "role                   : unknown (adapter off?)"
+    echo "role                   : none — no HFP profile registered (adapter off, or WirePlumber's BlueZ monitor isn't running; headless? re-run setup enable)"
   fi
 }
 

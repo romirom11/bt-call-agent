@@ -121,10 +121,16 @@ def doctor() -> int:
     check("Powered: yes" in show, "adapter is powered on",
           "no adapter, or it is powered off", "bluetoothctl power on")
 
-    check(HF_UUID in show, "adapter advertises the Hands-Free (headset) role",
-          "adapter does not advertise the Hands-Free role"
-          + (" (it advertises Audio Gateway instead)" if AG_UUID in show else ""),
-          "bt-call-agent setup enable")
+    if HF_UUID in show or AG_UUID in show or "Powered: yes" not in show:
+        check(HF_UUID in show, "adapter advertises the Hands-Free (headset) role",
+              "adapter does not advertise the Hands-Free role"
+              + (" (it advertises Audio Gateway instead)" if AG_UUID in show else ""),
+              "bt-call-agent setup enable")
+    else:
+        check(False, "", "no Bluetooth audio profiles registered at all: WirePlumber's BlueZ "
+              "monitor isn't running (on a headless machine it waits for a local seat)",
+              "bt-call-agent setup enable (adds the headless override), "
+              "or see: journalctl --user -u wireplumber")
 
     m = re.search(r"Class: (0x[0-9a-fA-F]+)", show)
     cls = int(m[1], 16) if m else 0

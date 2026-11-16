@@ -33,8 +33,13 @@ calls, Telegram, WhatsApp, Signal… (so far tested with Telegram).
 
 ## Status
 
-Early prototype (v0.1). Tested on Arch Linux (BlueZ 5.87, PipeWire 1.6) with a
-Pixel 7 Pro over Telegram calls. Expect rough edges.
+Early prototype (v0.1). Expect rough edges. Tested with a Pixel 7 Pro over
+Telegram calls on:
+
+| Distro | BlueZ | PipeWire | WirePlumber | Adapter |
+|---|---|---|---|---|
+| Arch Linux (desktop) | 5.87 | 1.6.9 | 0.5.18 | Realtek USB |
+| Ubuntu 26.04 (headless server) | 5.85 | 1.6.2 | 0.5.13 | Realtek RTL8821C USB |
 
 What works:
 - the phone sees the machine as a headset (HFP Hands-Free, wide-band mSBC)
@@ -84,6 +89,10 @@ This changes three things, all reverted by `bt-call-agent setup disable`:
 | WirePlumber `bluez5.roles = [ hfp_hf a2dp_sink ]` | advertise the *headset* side of HFP instead of the *phone* side |
 | `/etc/bluetooth/main.conf`: `Class = 0x240404` | look like a headset (Audio/Video → Wearable Headset), not a computer |
 | `bluetoothd -P hostname` (systemd drop-in) | BlueZ's hostname plugin would override the class with "Computer" again |
+
+On a **headless** machine (no local login), `setup enable` also turns off
+WirePlumber's BlueZ *seat monitoring*. Otherwise WirePlumber only starts Bluetooth
+audio for an active local seat, and no headset profile ever appears.
 
 > While headset mode is on, this machine can't play its own audio to Bluetooth
 > headphones. That's why it's a toggle.
@@ -163,6 +172,10 @@ journalctl --user -u bt-call-agent -f
 **Phone shows the machine as a computer / no "Phone calls" toggle.**
 Run `bt-call-agent doctor`. The class must be `0x…0404`. On the phone, *forget*
 the device and pair again: phones cache the old class.
+
+**`doctor`: "no Bluetooth audio profiles registered at all".** WirePlumber's
+BlueZ monitor isn't running, typically on a headless box (see Setup). Re-run
+`bt-call-agent setup enable`, or force it with `BT_CALL_AGENT_HEADLESS=1`.
 
 **Phone says "can't communicate with …".** Forget the device on the phone,
 toggle the phone's Bluetooth, pair again. `sudo btmon` shows whether the phone
