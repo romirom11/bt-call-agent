@@ -30,11 +30,7 @@ No root, no Twilio, no hacking Android.
 
 ## How it works
 
-```mermaid
-flowchart LR
-    phone["Phone<br/>any call app"] <-->|"Bluetooth: it thinks<br/>this is a headset"| box["Linux box<br/>bt-call-agent"]
-    box <-->|"call audio"| gemini["Gemini Live<br/>does the talking"]
-```
+<img src="docs/how-it-works.svg" alt="Your phone sends the call over Bluetooth to a Linux box that pretends to be a headset; the box streams the voice to Gemini Live, which listens and does the talking" width="100%">
 
 You follow and steer it from the web UI, on your phone or laptop.
 
