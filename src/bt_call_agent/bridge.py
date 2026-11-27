@@ -14,6 +14,10 @@ import json
 import pathlib
 import subprocess
 from dataclasses import dataclass
+from typing import Callable
+
+from . import events
+from .events import hub
 
 IN_RATE = 16000          # what we send to Gemini
 OUT_RATE = 24000         # what Gemini Live returns
@@ -28,7 +32,9 @@ GREETING_CUE = ("(The other person has just picked up the phone. Speak first: gr
 
 
 def log(*a):
-    print(dt.datetime.now().strftime("%H:%M:%S"), *a, flush=True)
+    text = " ".join(str(x) for x in a)
+    print(dt.datetime.now().strftime("%H:%M:%S"), text, flush=True)
+    hub.log(text)
 
 
 @dataclass
@@ -41,7 +47,7 @@ class Options:
     greet: bool = True
     greet_timeout: float = 6.0
     out_volume: float = 0.7
-    once: bool = False
+    prompt_source: str = ""
 
 
 # --------------------------------------------------------------------------- PipeWire
@@ -220,13 +226,17 @@ async def receiver(session, player: Player, transcript, stop: asyncio.Event,
     heard, said = [], []
 
     def flush_lines():
-        for who, buf in (("👤 them", heard), ("🤖 agent", said)):
+        for who, label, buf in (("them", "👤 them", heard), ("agent", "🤖 agent", said)):
             if buf:
-                line = f"{who}: {''.join(buf).strip()}"
+                text = "".join(buf).strip()
+                buf.clear()
+                if not text:
+                    continue
+                line = f"{label}: {text}"
                 log(line)
+                hub.line(who, text)
                 transcript.write(line + "\n")
                 transcript.flush()
-                buf.clear()
 
     while not stop.is_set():
         async for msg in session.receive():
@@ -242,11 +252,13 @@ async def receiver(session, player: Player, transcript, stop: asyncio.Event,
                 if said:
                     flush_lines()
                 heard.append(sc.input_transcription.text)
+                hub.speaking("them", "".join(heard).strip())
                 caller_spoke.set()
             if sc.output_transcription and sc.output_transcription.text:
                 if heard:
                     flush_lines()
                 said.append(sc.output_transcription.text)
+                hub.speaking("agent", "".join(said).strip())
             if sc.model_turn:
                 for part in sc.model_turn.parts or []:
                     if part.inline_data and part.inline_data.data:
@@ -283,12 +295,15 @@ async def run_call(client, opts: Options, nodes):
     opts.transcripts_dir.mkdir(parents=True, exist_ok=True)
     tpath = opts.transcripts_dir / dt.datetime.now().strftime("call-%Y%m%d-%H%M%S.txt")
     stop = asyncio.Event()
+    hub.call_started(opts.model, tpath.name, opts.prompt_source)
+    hub.attach_call(stop)
     player = Player(sink, opts.out_volume)
     await player.start()
     try:
         with open(tpath, "w", encoding="utf-8") as transcript:
             async with client.aio.live.connect(model=opts.model, config=live_config(opts)) as session:
                 log(f"Gemini Live connected ({opts.model}); transcript -> {tpath}")
+                hub.set_status(events.IN_CALL)
                 rerouted, caller_spoke = asyncio.Event(), asyncio.Event()
                 tasks = [asyncio.create_task(c) for c in (
                     mic_reader(session, source, stop, rerouted),
@@ -308,24 +323,39 @@ async def run_call(client, opts: Options, nodes):
                 await asyncio.gather(*tasks, *extra, stopper, return_exceptions=True)
     finally:
         await player.stop()
+        hub.call_ended()
     log("session closed")
 
 
-async def serve(api_key: str, opts: Options):
+async def serve(get_key: Callable[[], str | None], make_opts: Callable[[], Options],
+                once: bool = False):
+    """Wait for calls forever. The key and the options are read again before
+    every call, so changes from the web UI apply from the next call on."""
     from google import genai
-    client = genai.Client(api_key=api_key)
-    log(f"waiting for a Bluetooth call (HFP)... model={opts.model}")
+    clients: dict[str, object] = {}
+    log("waiting for a Bluetooth call (HFP)...")
     while True:
+        key = get_key()
+        hub.set_status(events.WAITING if key else events.NO_KEY)
         nodes = find_call_nodes()
         if not nodes:
             await asyncio.sleep(1)
             continue
-        try:
-            await run_call(client, opts, nodes)
-        except Exception as e:
-            log("session failed:", repr(e))
-        if opts.once:
-            return
+        if not key:
+            log("call detected, but there is no Gemini API key: the agent stays out of it")
+        else:
+            try:
+                opts = make_opts()
+                if key not in clients:
+                    clients.clear()
+                    clients[key] = genai.Client(api_key=key)
+                await run_call(clients[key], opts, nodes)
+            except Exception as e:
+                log("session failed:", repr(e))
+            if once:
+                return
+        if key and find_call_nodes():
+            hub.set_status(events.AGENT_STOPPED)
         while find_call_nodes():       # don't re-enter the same call
             await asyncio.sleep(1)
         log("waiting for the next call...")
