@@ -165,6 +165,11 @@ bt-call-agent run --web                 # http://127.0.0.1:8080, this machine on
 bt-call-agent run --web 0.0.0.0:8080    # reachable from your LAN, e.g. from the phone
 ```
 
+<p>
+  <img src="docs/web-ui-call.png" alt="Web UI on a laptop during a call: call card with a Stop the agent button, and the live conversation" width="72%">
+  <img src="docs/web-ui-phone.png" alt="The same call on a phone, dark theme" width="25%">
+</p>
+
 It shows the call live (both sides of the conversation, as they speak), and lets you:
 
 - change the agent's task (the prompt) and keep reusable prompts
