@@ -32,28 +32,25 @@ No root, no Twilio, no hacking Android.
 
 ```mermaid
 flowchart LR
-    phone["Phone<br/>GSM or Telegram call"]
-    box["Linux box<br/>BlueZ + PipeWire<br/>bt-call-agent"]
-    gemini["Gemini Live"]
-    browser["Browser<br/>on your phone or laptop"]
-    phone <-->|"Bluetooth HFP: the phone<br/>thinks it's a headset"| box
-    box <-->|"call audio<br/>16 kHz in, 24 kHz out"| gemini
-    browser -.->|"web UI"| box
+    phone["Phone<br/>any call app"] <-->|"Bluetooth: it thinks<br/>this is a headset"| box["Linux box<br/>bt-call-agent"]
+    box <-->|"call audio"| gemini["Gemini Live<br/>does the talking"]
 ```
+
+You follow and steer it from the web UI, on your phone or laptop.
 
 ## Quick start
 
 ```bash
 pipx install git+https://github.com/romirom11/bt-call-agent
-bt-call-agent setup enable              # headset mode, asks for sudo; undo with `setup disable`
-bt-call-agent pair                      # pair the phone, then turn on "Phone calls" for it
-bt-call-agent run --web 0.0.0.0:8080    # prints a link to the web UI
+bt-call-agent setup enable             # headset mode (sudo)
+bt-call-agent pair                     # pair the phone
+bt-call-agent run --web 0.0.0.0:8080   # prints the web UI link
 ```
 
-Open the printed link on your phone, add your
-[Gemini API key](https://aistudio.google.com/apikey) in Settings, write the task, and
-make a call with the phone's audio on the Bluetooth device. The agent takes it from
-there. [Setup](#setup) below goes through each step.
+On the phone, turn on *Phone calls* for the new device. Then open the printed link,
+add your [Gemini API key](https://aistudio.google.com/apikey) in Settings, write the
+task, and make a call with the phone's audio on the Bluetooth device. The agent takes
+it from there. [Setup](#setup) below goes through each step.
 
 ## Status
 
