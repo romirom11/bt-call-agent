@@ -1,35 +1,52 @@
+<div align="center">
+
 # bt-call-agent
 
-Let an AI agent talk in your phone calls — without root, without Twilio, without
-hacking Android.
+**An AI agent that talks in your phone calls.**
 
-Your Linux machine pretends to be a **Bluetooth headset**. The phone happily
-routes call audio to it, like it would to any earbuds, and `bt-call-agent`
-bridges that audio to **Gemini Live**. The person on the other end talks to the
-AI; you watch the transcript.
+Your Linux box pretends to be a Bluetooth headset. The phone sends the call to it
+like it would to any earbuds, and the agent does the talking through Gemini Live.<br>
+No root, no Twilio, no hacking Android.
 
+![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-0F5C47)
+![Linux](https://img.shields.io/badge/platform-Linux-0F5C47)
+![License: MIT](https://img.shields.io/badge/license-MIT-0F5C47)
+
+<img src="docs/hero.png" alt="The web UI during a call, on a laptop and on a phone: the call card with a Stop the agent button, and the conversation as both sides speak" width="100%">
+
+</div>
+
+## What you get
+
+- **The agent handles the call.** Give it a task, like booking a table for four on
+  Saturday. It greets the other side, talks, listens, lets itself be interrupted, and
+  speaks their language.
+- **It works with the calls you already make.** Anything the phone routes to a
+  Bluetooth headset: regular calls, Telegram, WhatsApp, Signal. So far it's tested
+  with Telegram.
+- **You stay in control.** Follow the conversation live from your phone or laptop,
+  change the task between calls, or stop the agent mid-call and take over yourself.
+  Every call is saved as a transcript.
+
+## How it works
+
+<img src="docs/how-it-works.svg" alt="Your phone sends the call over Bluetooth to a Linux box that pretends to be a headset; the box streams the voice to Gemini Live, which listens and does the talking" width="100%">
+
+You follow and steer it from the web UI, on your phone or laptop.
+
+## Quick start
+
+```bash
+pipx install git+https://github.com/romirom11/bt-call-agent
+bt-call-agent setup enable             # headset mode (sudo)
+bt-call-agent pair                     # pair the phone
+bt-call-agent run --web 0.0.0.0:8080   # prints the web UI link
 ```
-┌────────────────────────────────┐
-│ Phone: GSM / Telegram call     │
-└────────────────────────────────┘
-      ▲                   │
- agent's voice       their voice      Bluetooth HFP, mSBC 16 kHz
-      │                   ▼           (the phone thinks it's a headset)
-┌────────────────────────────────┐
-│ Linux: BlueZ + PipeWire        │
-│ bluez_output.*   bluez_input.* │
-└────────────────────────────────┘
-      ▲                   │
-   pw-play            pw-record       bt-call-agent
-   24 kHz              16 kHz
-      │                   ▼
-┌────────────────────────────────┐
-│ Gemini Live (cloud)            │
-└────────────────────────────────┘
-```
 
-Should work with any call the phone routes to a Bluetooth headset: regular GSM
-calls, Telegram, WhatsApp, Signal… (so far tested with Telegram).
+On the phone, turn on *Phone calls* for the new device. Then open the printed link,
+add your [Gemini API key](https://aistudio.google.com/apikey) in Settings, write the
+task, and make a call with the phone's audio on the Bluetooth device. The agent takes
+it from there. [Setup](#setup) below goes through each step.
 
 ## Status
 
@@ -165,11 +182,6 @@ bt-call-agent run --web                 # http://127.0.0.1:8080, this machine on
 bt-call-agent run --web 0.0.0.0:8080    # reachable from your LAN, e.g. from the phone
 ```
 
-<p>
-  <img src="docs/web-ui-call.png" alt="Web UI on a laptop during a call: call card with a Stop the agent button, and the live conversation" width="72%">
-  <img src="docs/web-ui-phone.png" alt="The same call on a phone, dark theme" width="25%">
-</p>
-
 It shows the call live (both sides of the conversation, as they speak), and lets you:
 
 - change the agent's task (the prompt) and keep reusable prompts
@@ -240,7 +252,7 @@ Bluetooth share the band, and a USB dongle on an extension cable helps.
   rules where you and the other side are.
 - Don't use it for spam, robocalls or impersonation.
 
-## How it works (short version)
+## How it works, in more detail
 
 - **HFP roles.** A phone is the *Audio Gateway*; headsets are the *Hands-Free*
   unit. BlueZ + PipeWire can play either; we pick Hands-Free.
