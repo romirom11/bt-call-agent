@@ -114,6 +114,8 @@ install -m 600 /dev/stdin ~/.config/bt-call-agent/key <<< "AIza..."
 # or: export GEMINI_API_KEY=AIza...
 ```
 
+(or paste it into the [web UI](#web-ui)'s Settings once the agent runs with `--web`).
+
 **4. Check everything:**
 
 ```bash
@@ -144,27 +146,59 @@ Useful options:
 
 | Option | |
 |---|---|
-| `--prompt FILE` | what the agent should do (see [examples/](examples/)) |
+| `--web` | also serve the [web UI](#web-ui) |
+| `--prompt FILE` | what the agent should do (see [the examples](src/bt_call_agent/data/prompts/)) |
 | `--voice Kore` | a prebuilt Gemini voice |
 | `--no-greet` | wait for the other side to speak first |
 | `--out-volume 0.5` | agent loudness into the call (lower if it distorts) |
 | `--model …` | default `gemini-3.8-live` |
 
+Voice, language, greeting, loudness and model can also live in
+`~/.config/bt-call-agent/config.json` (the web UI writes it). A flag given on the
+command line wins over the file. Both are read again before every call, so you don't
+need to restart the agent.
+
+### Web UI
+
+```bash
+bt-call-agent run --web                 # http://127.0.0.1:8080, this machine only
+bt-call-agent run --web 0.0.0.0:8080    # reachable from your LAN, e.g. from the phone
+```
+
+It shows the call live (both sides of the conversation, as they speak), and lets you:
+
+- change the agent's task (the prompt) and keep reusable prompts
+- set the voice, language, greeting, loudness and model
+- stop the agent mid-call: the call stays up and you can take it over on the phone
+- read, download and delete past transcripts
+- run the `doctor` checks, pair a phone, and save the Gemini API key
+
+Changes apply from the next call. Switching headset mode on and off needs sudo, so
+that stays on the command line.
+
+The UI needs an access token: the agent prints the link with it when it starts, and
+`bt-call-agent web-url` prints it again (the token is in
+`~/.config/bt-call-agent/web-token`; delete the file to get a new one). Opening the
+link once signs that browser in. The server speaks plain HTTP, so on anything other
+than your own trusted network, reach it through SSH (`ssh -L 8080:127.0.0.1:8080
+box`) or a VPN like Tailscale instead of opening the port.
+
 ### Prompts
 
 The prompt decides the agent's task **and its language**. Default lookup order:
 `--prompt` → `~/.config/bt-call-agent/prompt.txt` → the bundled test prompt.
-Examples:
+Examples (also offered in the web UI):
 
-- [`examples/restaurant-booking.txt`](examples/restaurant-booking.txt) — book a table, in the restaurant's language
-- [`examples/test-call-uk.txt`](examples/test-call-uk.txt) — Ukrainian test call
+- [`restaurant-booking.txt`](src/bt_call_agent/data/prompts/restaurant-booking.txt) — book a table, in the restaurant's language
+- [`test-call-uk.txt`](src/bt_call_agent/data/prompts/test-call-uk.txt) — Ukrainian test call
 
 ### As a service
 
 ```bash
-bt-call-agent install-service -- --prompt ~/.config/bt-call-agent/prompt.txt
+bt-call-agent install-service -- --web
 systemctl --user enable --now bt-call-agent
 journalctl --user -u bt-call-agent -f
+bt-call-agent web-url                   # the web UI link
 ```
 
 ## Troubleshooting

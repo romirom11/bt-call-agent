@@ -9,7 +9,7 @@ description = "Let an AI agent talk in your phone calls: Linux pretends to be a 
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
-dependencies = ["google-genai>=2.30,<3"]
+dependencies = ["google-genai>=2.30,<3", "aiohttp>=3.9,<4"]
 classifiers = [
     "Operating System :: POSIX :: Linux",
     "Topic :: Communications :: Telephony",
@@ -23,4 +23,4 @@ bt-call-agent = "bt_call_agent.cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-bt_call_agent = ["data/*"]
+bt_call_agent = ["data/*", "data/prompts/*", "data/web/*", "data/web/fonts/*"]

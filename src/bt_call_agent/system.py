@@ -45,8 +45,9 @@ def devices(flt: str | None = None) -> dict[str, str]:
 
 # --------------------------------------------------------------------------- pair
 
-def pair(timeout: int = 180) -> int:
-    """Make this machine discoverable, auto-accept pairing, trust the phone."""
+def pair(timeout: int = 180, out=print, cancel=None) -> int:
+    """Make this machine discoverable, auto-accept pairing, trust the phone.
+    `out` gets the progress messages; `cancel` (a threading.Event) stops early."""
     before = set(devices("Paired"))
     ctl = subprocess.Popen(["bluetoothctl", "--agent", "NoInputNoOutput"],
                            stdin=subprocess.PIPE, stdout=subprocess.DEVNULL,
@@ -63,21 +64,23 @@ def pair(timeout: int = 180) -> int:
             time.sleep(0.3)
         name = sh("bluetoothctl", "show")
         alias = re.search(r"Alias: (.*)", name)
-        print(f"Discoverable as '{alias[1] if alias else '?'}' for {timeout}s.")
-        print("On the phone: Bluetooth -> pair new device -> pick it. Ctrl+C to stop.")
+        out(f"Discoverable as '{alias[1] if alias else '?'}' for {timeout}s.")
+        out("On the phone: Bluetooth -> pair new device -> pick it."
+            + (" Ctrl+C to stop." if out is print else ""))
         deadline = time.time() + timeout
-        while time.time() < deadline:
+        while time.time() < deadline and not (cancel and cancel.is_set()):
             new = {mac: n for mac, n in devices("Paired").items() if mac not in before}
             connected = devices("Connected")
             for mac, n in new.items():
                 sh("bluetoothctl", "trust", mac)
                 if mac in connected:
-                    print(f"✓ paired, trusted and connected: {n} ({mac})")
-                    print("  On the phone, open this device's settings and make sure "
-                          "'Phone calls' is enabled.")
+                    out(f"✓ paired, trusted and connected: {n} ({mac})")
+                    out("  On the phone, open this device's settings and make sure "
+                        "'Phone calls' is enabled.")
                     return 0
             time.sleep(2)
-        print("✗ no phone paired before the timeout")
+        out("✗ pairing stopped" if cancel and cancel.is_set()
+            else "✗ no phone paired before the timeout")
         return 1
     except KeyboardInterrupt:
         return 130
@@ -92,16 +95,16 @@ def pair(timeout: int = 180) -> int:
 
 # --------------------------------------------------------------------------- doctor
 
-def doctor() -> int:
-    problems = 0
+def checks() -> list[dict]:
+    """The doctor's findings: {"ok": True/False/None (info), "text", "hint"}."""
+    found: list[dict] = []
 
     def check(ok: bool, good: str, bad: str, hint: str = ""):
-        nonlocal problems
-        if ok:
-            print(f"✓ {good}")
-        else:
-            problems += 1
-            print(f"✗ {bad}" + (f"\n    → {hint}" if hint else ""))
+        found.append({"ok": True, "text": good, "hint": ""} if ok
+                     else {"ok": False, "text": bad, "hint": hint})
+
+    def info(text: str):
+        found.append({"ok": None, "text": text, "hint": ""})
 
     tools = ["bluetoothctl", "pw-dump", "pw-record", "pw-play", "wpctl"]
     missing = [t for t in tools if not shutil.which(t)]
@@ -149,16 +152,27 @@ def doctor() -> int:
               "turn on Bluetooth on the phone or: bluetoothctl connect <MAC>")
 
     nodes = bridge.find_call_nodes()
-    print(f"• call audio nodes: {nodes[0]} / {nodes[1]}" if nodes
-          else "• no active call (call audio nodes appear only during a call)")
+    info(f"call audio nodes: {nodes[0]} / {nodes[1]}" if nodes
+         else "no active call (call audio nodes appear only during a call)")
 
     key = config.resolve_api_key(None)
     check(bool(key), "Gemini API key found",
           "no Gemini API key",
           f"export GEMINI_API_KEY=... or put it in {config.key_path()} (chmod 600)")
-    prompt_src = config.prompt_path(None)
-    print(f"• prompt: {prompt_src}")
+    info(f"prompt: {config.prompt_path(None)}")
+    return found
 
+
+def doctor() -> int:
+    found = checks()
+    for c in found:
+        if c["ok"] is None:
+            print(f"• {c['text']}")
+        elif c["ok"]:
+            print(f"✓ {c['text']}")
+        else:
+            print(f"✗ {c['text']}" + (f"\n    → {c['hint']}" if c["hint"] else ""))
+    problems = sum(c["ok"] is False for c in found)
     print("\nAll good." if not problems else f"\n{problems} problem(s) found.")
     return 1 if problems else 0
 
